@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shoot targets</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            text-align: center;
+            background-color: rgba(148, 0, 211, 0.7);
+            font-family: 'Times New Roman', Times, serif;
+        }
+
+        h1 {
+            color: rgb(230, 230, 250);
+            font-size: 50px;
+        }
+
+        .screen {
+            align-self: center;
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+        }
+
+        #gameArea {
+            width: 800px;
+            height: auto;
+            border: 4px solid rgb(230, 230, 250);
+        }
+
+        #timer {
+            width: 100px;
+            height: 100px;
+            margin-left: 25px;
+            border-radius: 35%;
+        }
+
+        .normal {
+            border: 4px solid rgb(230, 230, 250);
+        }
+
+        .danger {
+            border: 4px solid red;
+        }
+
+        .btns {
+            margin-top: 25px;
+        }
+
+        .btns button {
+            padding: 20px;
+            font-size: xx-large;
+            border-radius: 50%;
+            color: white;
+        }
+
+        .startbtn {
+            background-color: green;
+            margin-right: 30px;
+        }
+
+        .stopbtn {
+            background-color: red;
+            margin-left: 30px;
+        }
+
+        .row {
+            margin-top: 15px;
+            margin-left: 15px;
+            border: 4px solid #ff471a;
+            padding: 5px;
+            background-color: #f5f5f0;
+            opacity: 0.9;
+            text-align: justify;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .col {
+            align-self: center;
+            margin-top: 2px;
+            margin-bottom: 2px;
+            color: black;
+            font-weight: 600;
+        }
+
+        .title {
+            margin-bottom: 5px;
+            text-decoration: underline;
+            font-weight: 900;
+        }
+
+        .title span {
+            background-color: #00802b;
+            opacity: 0.9;
+            padding: 2px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Shoot targets</h1>
+    <div class="screen">
+        <canvas id="gameArea"></canvas>
+        <div>
+            <canvas id="timer"></canvas>
+            <br>
+            <div class="row">
+                <form name="configuration">
+                    <label for="" class="title"><span>Countdown options</span></label>
+                    <div class="col">
+                        <input type="radio" name="count" id="" value="120">
+                        <label for="">120</label>
+                    </div>
+                    <div class="col">
+                        <input type="radio" name="count" id="" value="80">
+                        <label for="">80</label>
+                    </div>
+                    <div class="col">
+                        <input type="radio" name="count" id="" value="60" checked="true">
+                        <label for="">60</label>
+                    </div>
+                    <div class="col">
+                        <input type="radio" name="count" id="" value="50">
+                        <label for="">50</label>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="btns">
+        <button id="startbtn" class="startbtn" onclick="startGame()">Start</button>
+        <button class="stopbtn" onclick="endTheGame()">Stop</button>
+    </div>
+    <script>
+        class Bullet {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.size = 6;
+                this.color = "gold";
+            }
+            draw(ctx) {
+                ctx.fillStyle = this.color;
+                ctx.fillRect(this.x, this.y, this.size / 2, this.size);
+            }
+            move(velocity) {
+                const midSize = this.size / 2;
+                if (this.x - midSize > 0) {
+                    this.y -= velocity;
+                }
+            }
+        }
+        class Player {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.bullets = new Array();
+                this.size = 10;
+                this.color = "blue";
+                this.shadowColor = "yellow";
+                this.delay = 0;
+            }
+            addBullet(x, y) {
+                this.bullets.push(new Bullet(x, y));
+            }
+            deleteBullet(i) {
+                this.bullets.splice(i, 1);
+            }
+            numberOfBullets() {
+                return parseInt(this.bullets.length);
+            }
+            setStyle(ctx) {
+                ctx.shadowColor = this.shadowColor;
+                ctx.shadowBlur = 2;
+                ctx.lineJoin = "bevel";
+                ctx.lineWidth = 2;
+            }
+            drawBullets(ctx) {
+                if (this.bullets.length == 1) {
+                    this.bullets[0].draw(ctx);
+                }
+                else {
+                    let i = 0;
+                    while (i < this.bullets.length) {
+                        this.bullets[i].draw(ctx);
+                        i++;
+                    }
+                }
+            }
+            draw(ctx) {
+                this.setStyle(ctx);
+                ctx.strokeStyle = this.color;
+                ctx.strokeRect(this.x, this.y, this.size, this.size);
+                this.drawBullets(ctx);
+            }
+            move(ctx, velocity, directions, bounds) {
+                /*upKeyDown,rightKeyDown,leftKeyDown,downKeyDown*/
+                const h = bounds.height;
+                if (this.y - velocity >= h / 2) {
+                    if (directions.upKeyDown) {
+                        this.y -= velocity;
+                    }
+                }
+                if (this.y + velocity + 10 < h) {
+                    if (directions.downKeyDown) {
+                        this.y += velocity;
+                    }
+                }
+                if (this.x + velocity + 10 < bounds.width) {
+                    if (directions.rightKeyDown) {
+                        this.x += velocity;
+                    }
+                }
+
+                if (this.x - velocity > 0) {
+                    if (directions.leftKeyDown) {
+                        this.x -= velocity;
+                    }
+                }
+                this.moveBullets(velocity, bounds);
+            }
+            moveBullets(velocity, bounds) {
+                let i = 0;
+                while (i < this.bullets.length) {
+                    this.bullets[i].move(velocity);
+                    if (this.bullets[i].y < 0) {
+                        this.bullets.splice(i, 1);
+                    }
+                    else {
+                        i++;
+                    }
+                }
+            }
+            fireBullet(state) {
+                if (state) {
+                    if (this.delay == 0) {
+                        let bx = this.x - (this.size / 2);
+                        bx += 9;
+                        let by = this.y + (this.size / 2) - 10;
+                        //alert("bx="+bx+"by="+by);
+                        this.addBullet(bx, by);
+                        this.delay = 10;
+                    }
+                    else {
+                        this.delay--;
+                    }
+                }
+            }
+            testBullets(enemy) {
+                let i = 0;
+                while (i < this.bullets.length) {
+                    if (enemy.getDamages(this.bullets[i])) {
+                        this.bullets.splice(i, 1);
+                    }
+                    else {
+                        i++;
+                    }
+
+                }
+            }
+        }
+        class Enemy {
+            constructor(x, y, health, color) {
+                this.x = x;
+                this.y = y;
+                this.health = health;
+                this.color = color;
+                this.size = 20;
+                this.shadowBlur = "blue";
+                this.font = "new times roman";
+                this.width = 4;
+            }
+            setStyle(ctx) {
+                ctx.lineWidth = this.width;
+                ctx.shadowColor = this.shadowColor;
+                ctx.shadowBlur = 2;
+                ctx.lineJoin = "bevel";
+            }
+            draw(ctx) {
+                this.setStyle(ctx);
+                ctx.strokeStyle = this.color;
+                ctx.strokeRect(this.x, this.y, this.size, this.size);
+                this.drawHealth(ctx);
+            }
+            drawHealth(ctx) {
+                ctx.font = "10px " + this.font;
+                ctx.fillStyle = "white";
+                if (this.health > 9) {
+                    ctx.fillText(this.health, this.x + 4, this.y + 15);
+                }
+                else {
+                    ctx.fillText(this.health, this.x + 7, this.y + 15);
+                }
+            }
+            getDamages(bullet) {
+                const midSize = this.size / 2;
+                if (bullet.y - this.size <= this.y && bullet.x - midSize > this.x - midSize && bullet.x - midSize < this.x + midSize) {
+                    if (this.width > 1) {
+                        this.width--;
+                    }
+                    else {
+                        this.width = 1;
+                        this.health--;
+                    }
+                    return true;
+                }
+                return false;
+            }
+            testIn(val, min, max) {
+                if (val > min && val < max) {
+                    return true;
+                }
+                else {
+                    return false;
+                }
+            }
+        }
+        /// Configurations
+        const board = document.getElementById('gameArea');
+        const contextType = "2d";
+        const context = board.getContext(contextType);
+        const velocity = 2;
+        let upKeyDown = false;
+        let rightKeyDown = false;
+        let leftKeyDown = false;
+        let downKeyDown = false;
+        let spaceKeyDown = false;
+        const width = board.width;
+        const height = board.height;
+        let player = new Player(width / 2, height - 12);
+        //const enemy=new Enemy(10,10,50);
+        const enemy = new Enemy(20, 10, 50, "red");
+        const enemies = new Array();
+        const colors = ["red", "blue", "crimson", "green", "orange"];
+        let loop = 0;
+        let animation = undefined;
+        let key = "";
+        const font = "times new roman";
+        let timer = 12;
+        let delay = 0;
+        const timeArea = document.getElementById('timer');
+        const timerContext = timeArea.getContext(contextType);
+        /// Game logic
+        function clearScreen() {
+            context.fillStyle = "black";
+            context.fillRect(0, 0, board.width, board.height);
+        }
+        function clearScreenTimer() {
+            timerContext.fillStyle = "black";
+            timerContext.fillRect(0, 0, board.width, board.height);
+        }
+        function manageKeyEventsOnKeyDown(e) {
+            if (e.key == "p") {
+                key = "p";
+            }
+            else {
+                key = "";
+                if (e.key == "ArrowRight") {
+                    rightKeyDown = true;
+                }
+                if (e.key == "ArrowLeft") {
+                    leftKeyDown = true;
+                }
+                if (e.key == "ArrowDown") {
+                    downKeyDown = true;
+                }
+                if (e.key == "ArrowUp") {
+                    upKeyDown = true;
+                }
+                if (e.key == " ") {
+                    spaceKeyDown = true;
+                }
+            }
+        }
+        function manageKeyEventsOnKeyUp(e) {
+            if (e.key == "ArrowRight") {
+                rightKeyDown = false;
+            }
+            if (e.key == "ArrowLeft") {
+                leftKeyDown = false;
+            }
+            if (e.key == "ArrowDown") {
+                downKeyDown = false;
+            }
+            if (e.key == "ArrowUp") {
+                upKeyDown = false;
+            }
+            if (e.key == " ") {
+                //console.log(player.numberOfBullets);
+                spaceKeyDown = false;
+            }
+        }
+        function manageKeyEvents() {
+            document.body.addEventListener('keydown', manageKeyEventsOnKeyDown);
+            document.body.addEventListener('keyup', manageKeyEventsOnKeyUp);
+        }
+        function drawEnemies() {
+            let i = 0;
+            while (i < enemies.length) {
+                if (enemies[i].health > 0) {
+                    enemies[i].draw(context);
+                }
+                else {
+                    enemies.splice(i, 1);
+                }
+                i++;
+            }
+        }
+        function addEnemies(n) {
+            const numberOfColors = colors.length;
+            let j = 0;
+            let xi = 20;
+            let yi = 10;
+            let i = 0;
+            while (i < n) {
+                enemies.push(new Enemy(xi, yi, 50, colors[j]));
+                if (j < numberOfColors) {
+                    j++;
+                }
+                else {
+                    j = 0;
+                }
+                xi += 30;
+                i++;
+            }
+            yi += 30;
+            i = 0;
+            xi = 20;
+            while (i < n) {
+                enemies.push(new Enemy(xi, yi, 50, colors[j]));
+                if (j < numberOfColors) {
+                    j++;
+                }
+                else {
+                    j = 0;
+                }
+                xi += 30;
+                i++;
+            }
+        }
+        function testBullets(test) {
+            if (player.bullets.length == 1) {
+                if (test.getDamages(player.bullets[0])) {
+                    player.bullets.splice(0, 1)
+                }
+            }
+            else {
+                let i = 0;
+                while (i < player.bullets.length) {
+                    if (test.getDamages(player.bullets[i])) {
+                        player.bullets.splice(i, 1)
+                    }
+                    else {
+                        i++;
+                    }
+                }
+            }
+        }
+        function enemiesTakeDamage() {
+            let i = 0;
+            while (i < enemies.length) {
+                if (enemies[i].health > 0) {
+                    player.testBullets(enemies[i]);
+                }
+                i++;
+
+            }
+        }
+        function pauseTheGame() {
+            context.shadowColor = "";
+            context.shadowBlur = 0;
+            context.lineJoin = "";
+            context.lineWidth = 0;
+            clearScreen();
+            context.fillStyle = "white";
+            context.font = "30px " + font;
+            const pausex = width / 2;
+            const pausey = height / 2;
+            context.fillText("Pause", pausex - 40, pausey - 20);
+            context.fillStyle = "red";
+            context.font = "20px " + font;
+            context.fillText("Press any key to continue", pausex - 90, pausey + 40);
+        }
+        function stopTheGame() {
+            if (loop > 0) {
+                loop = 0;
+            }
+        }
+        function winingTheGame() {
+            if (enemies.length == 0 && timer > 0) {
+                context.shadowColor = "";
+                context.shadowBlur = 0;
+                context.lineJoin = "";
+                context.lineWidth = 0;
+                clearScreen();
+                context.fillStyle = "white";
+                context.font = "40px " + font;
+                const pausex = width / 2;
+                const pausey = height / 2;
+                context.fillText("You win", pausex - 60, pausey);
+                delay = -1;
+                //stopTheGame();
+            }
+        }
+        function losingTheGame() {
+            if (timer == 0) {
+                //stopTheGame();
+                context.shadowColor = "";
+                context.shadowBlur = 0;
+                context.lineJoin = "";
+                context.lineWidth = 0;
+                clearScreen();
+                context.fillStyle = "red";
+                context.font = "40px " + font;
+                const pausex = width / 2;
+                const pausey = height / 2;
+                context.fillText("You lose", pausex - 60, pausey);
+                stopTheGame();
+            }
+        }
+        function manageTimer() {
+            if (delay == 0) {
+                timer--;
+                delay = 100;
+            }
+            else {
+                if (delay > 0) {
+                    delay--;
+                }
+                else {
+                    stopTheGame();
+                }
+            }
+        }
+        function drawTime() {
+            timerContext.font = "80px " + font;
+            const xt = timeArea.width / 2;
+            const yt = timeArea.height / 2;
+            if (timer > 9) {
+                timerContext.fillStyle = "white";
+                timerContext.fillText(timer, xt - 40, yt + 30);
+                timeArea.className = "normal";
+            }
+            else {
+                timerContext.fillStyle = "red";
+                timerContext.fillText(timer, xt - 20, yt + 30);
+                timeArea.className = "danger";
+            }
+        }
+        function game() {
+            if (loop > 0) {
+                if (key == "p") {
+                    pauseTheGame();
+                }
+                else {
+                    clearScreen();
+                    clearScreenTimer();
+                    manageKeyEvents();
+                    player.draw(context);
+                    player.move(context, velocity, { rightKeyDown, upKeyDown, downKeyDown, leftKeyDown }, { width, height });
+                    player.fireBullet(spaceKeyDown);
+                    enemiesTakeDamage();
+                    drawEnemies();
+                    winingTheGame();
+                    losingTheGame();
+                    manageTimer();
+                    drawTime();
+                }
+            }
+        }
+        function loopGame() {
+            console.log("Working...");
+            game();
+            animation = requestAnimationFrame(loopGame);
+            if (loop == 0) {
+                cancelAnimationFrame(animation);
+            }
+        }
+        function startGame() {
+            timer = document.forms.configuration.count.value;
+            document.getElementById('startbtn').disabled = true;
+            loop = 100;
+            delay = 100;
+            if (enemies.length == 0) {
+                addEnemies(9);
+            }
+            loopGame();
+        }
+        function mainMenu() {
+            clearScreen();
+            clearScreenTimer();
+            timer = 60;
+            drawTime();
+            context.shadowColor = "";
+            context.shadowBlur = 0;
+            context.lineJoin = "";
+            context.lineWidth = 0;
+            context.fillStyle = "white";
+            context.font = "30px " + font;
+            const pausex = width / 2;
+            const pausey = height / 2;
+            context.fillText("Shoot targets", pausex - 80, pausey - 20);
+            context.fillStyle = "red";
+            context.font = "20px " + font;
+            context.fillText("Press start  to begin", pausex - 80, pausey + 40);
+        }
+        function endTheGame() {
+            timer = 0;
+            stopTheGame();
+            mainMenu();
+            document.getElementById('startbtn').disabled = false;
+            enemies.splice(0, enemies.length);
+            player = new Player(width / 2, height - 12);
+        }
+        endTheGame();
+    </script>
+</body>
+
+</html>
